@@ -15,6 +15,10 @@ const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const API_VERSION = process.env.API_VERSION || 'v22.0'; // Fixed: Added fallback
 
+// WhatsApp support team contact (customize this)
+const SUPPORT_CONTACT = process.env.SUPPORT_CONTACT || '+1-555-TEAM-HELP';
+											 
+																		 
 // WhatsApp API endpoint
 const WHATSAPP_URL = `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/messages`;
 
@@ -52,16 +56,26 @@ app.post('/', async (req, res) => {
           if (message.type === 'text') {
             const senderPhone = message.from;
             const incomingText = message.text.body;
+			const originalMessageId = message.id; // 🔥 CAPTURE ORIGINAL MESSAGE ID
             
             console.log(`\n📱 Message from ${senderPhone}: "${incomingText}"`);
+            console.log(`🆔 Original Message ID: ${originalMessageId}`);
 
-            // Send reply and capture exact API response
-            const replyResult = await sendWhatsAppReply(senderPhone, `Echo: You said "${incomingText}"`);
+            // 1️⃣ FIRST: Send instant acknowledgement (NO context)
+            console.log(`📤 Sending ACKNOWLEDGEMENT to ${senderPhone}`);
+            const ackResult = await sendWhatsAppReply(senderPhone, `✅ Thanks for reaching out! We've received your message.`, null);
             
-            // Extract response details from the promise result
-            apiResponseData = replyResult.data;
-            apiResponseStatus = replyResult.status;
-            apiResponseHeaders = replyResult.headers;
+            // 2️⃣ SECOND: Reply to original message with context (30s delay)
+            console.log(`⏳ Scheduling REPLY WITH CONTEXT to ${senderPhone} in 30 seconds...`);
+            setTimeout(async () => {
+              console.log(`📤 Sending CONTEXT REPLY to ${senderPhone}`);
+              await sendWhatsAppReply(senderPhone, `📞 Please reach out to our support team at ${SUPPORT_CONTACT} for immediate assistance.`, originalMessageId);
+            }, 30000); // 30 seconds
+
+            // Use acknowledgement response for webhook
+            apiResponseData = ackResult.data;
+            apiResponseStatus = ackResult.status;
+            apiResponseHeaders = ackResult.headers;
             
             break; // Break after first message processing
           }
@@ -71,13 +85,13 @@ app.post('/', async (req, res) => {
     }
   }
 
-  // Return EXACT WhatsApp API response (body, status, headers)
+  // Return EXACT WhatsApp API response from acknowledgement
   res.status(apiResponseStatus).json(apiResponseData || { status: 'no_message_processed' });
 });
 
-// Function to send WhatsApp reply and return full API response
-async function sendWhatsAppReply(toPhone, messageText) {
-  const payload = {
+// Function to send WhatsApp reply (with optional context for replies)
+async function sendWhatsAppReply(toPhone, messageText, messageId = null) {
+  let payload = {
     messaging_product: 'whatsapp',
     recipient_type: 'individual',
     to: toPhone,
@@ -87,6 +101,14 @@ async function sendWhatsAppReply(toPhone, messageText) {
       body: messageText 
     }
   };
+
+  // 🔥 ADD CONTEXT for replies to original message
+  if (messageId) {
+    payload.context = {
+      message_id: messageId
+    };
+    console.log(`🔗 Adding context: message_id=${messageId}`);
+  }
 
   // 🔥 PRE-FLIGHT LOGGING: Print URL, Headers, and Body BEFORE API call
   console.log(`\n🚀 === WHATSAPP API REQUEST ===`);
@@ -116,9 +138,9 @@ async function sendWhatsAppReply(toPhone, messageText) {
       headers[key] = value;
     });
 
-    console.log(`✅ Reply sent to ${toPhone}: "${messageText}"`);
+    console.log(`✅ Reply sent to ${toPhone}: "${messageText}" ${messageId ? '(WITH CONTEXT)' : '(ACKNOWLEDGEMENT)'}`);
     console.log(`📤 WhatsApp API Status: ${response.status}`);
-    console.log(`📤 WhatsApp API Response:`, JSON.stringify(data, null, 2));
+																			  
 
     return {
       status: response.status,
@@ -139,4 +161,6 @@ async function sendWhatsAppReply(toPhone, messageText) {
 app.listen(port, () => {
   console.log(`\n🚀 Server listening on port ${port}`);
   console.log(`📍 Webhook URL: https://your-app.onrender.com/`);
+  console.log(`💬 Reply 1 (0s): "✅ Thanks for reaching out! We've received your message."`);
+  console.log(`💬 Reply 2 (30s): "📞 Please reach out to our support team at ${SUPPORT_CONTACT}" (WITH CONTEXT)`);
 });
