@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-const API_VERSION = process.env.API_VERSION;
+const API_VERSION = process.env.API_VERSION || 'v22.0'; // Fixed: Added fallback
 
 // WhatsApp API endpoint
 const WHATSAPP_URL = `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/messages`;
@@ -30,23 +30,28 @@ app.get('/', (req, res) => {
   }
 });
 
-// Route for POST requests (receive messages and reply)
+// Route for POST requests (receive messages and reply) - FIXED: Made async
 app.post('/', async (req, res) => {
   const timestamp = new Date().toISOString().replace('T', ' ').slice(0, 19);
   console.log(`\n\nWebhook received ${timestamp}\n`);
   console.log(JSON.stringify(req.body, null, 2));
 
+  // FIXED: Declare variables at top of function scope
+  let apiResponseData = null;
+  let apiResponseStatus = 200;
+  let apiResponseHeaders = {};
+
   // Check if it's a WhatsApp business account event
   if (req.body.object === 'whatsapp_business_account') {
-    req.body.entry.forEach(entry => {
-      entry.changes.forEach(change => {
+    for (const entry of req.body.entry) {  // FIXED: Changed to for...of
+      for (const change of entry.changes) {
         // Handle incoming messages
         if (change.field === 'messages' && change.value.messages) {
           const message = change.value.messages[0];
           
           if (message.type === 'text') {
-            const senderPhone = message.from;  // Sender's phone number
-            const incomingText = message.text.body;  // Message content
+            const senderPhone = message.from;
+            const incomingText = message.text.body;
             
             console.log(`\n📱 Message from ${senderPhone}: "${incomingText}"`);
 
@@ -58,8 +63,7 @@ app.post('/', async (req, res) => {
             apiResponseStatus = replyResult.status;
             apiResponseHeaders = replyResult.headers;
             
-            // Break after first message processing
-            break;
+            break; // Break after first message processing
           }
         }
       }
@@ -68,7 +72,7 @@ app.post('/', async (req, res) => {
   }
 
   // Return EXACT WhatsApp API response (body, status, headers)
-  res.status(apiResponseStatus).json(apiResponseData);
+  res.status(apiResponseStatus).json(apiResponseData || { status: 'no_message_processed' });
 });
 
 // Function to send WhatsApp reply and return full API response
@@ -84,7 +88,7 @@ async function sendWhatsAppReply(toPhone, messageText) {
     }
   };
 
-   // 🔥 PRE-FLIGHT LOGGING: Print URL, Headers, and Body BEFORE API call
+  // 🔥 PRE-FLIGHT LOGGING: Print URL, Headers, and Body BEFORE API call
   console.log(`\n🚀 === WHATSAPP API REQUEST ===`);
   console.log(`📍 URL: ${WHATSAPP_URL}`);
   console.log(`📋 Headers:`);
