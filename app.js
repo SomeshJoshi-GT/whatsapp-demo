@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-const API_VERSION = process.env.ACCESS_TOKEN.API_VERSION;
+const API_VERSION = process.env.API_VERSION;
 
 // WhatsApp API endpoint
 const WHATSAPP_URL = `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/messages`;
@@ -49,20 +49,29 @@ app.post('/', async (req, res) => {
             const incomingText = message.text.body;  // Message content
             
             console.log(`\n📱 Message from ${senderPhone}: "${incomingText}"`);
+
+            // Send reply and capture exact API response
+            const replyResult = await sendWhatsAppReply(senderPhone, `Echo: You said "${incomingText}"`);
             
-            // Send immediate reply back to sender
-            sendWhatsAppReply(senderPhone, `Echo: You said "${incomingText}"`);
+            // Extract response details from the promise result
+            apiResponseData = replyResult.data;
+            apiResponseStatus = replyResult.status;
+            apiResponseHeaders = replyResult.headers;
+            
+            // Break after first message processing
+            break;
           }
         }
-      });
-    });
+      }
+      if (apiResponseData !== null) break;
+    }
   }
 
-  // Always respond with 200 OK
-  res.status(200).end();
+  // Return EXACT WhatsApp API response (body, status, headers)
+  res.status(apiResponseStatus).json(apiResponseData);
 });
 
-// Function to send WhatsApp reply
+// Function to send WhatsApp reply and return full API response
 async function sendWhatsAppReply(toPhone, messageText) {
   const payload = {
     messaging_product: 'whatsapp',
@@ -75,6 +84,15 @@ async function sendWhatsAppReply(toPhone, messageText) {
     }
   };
 
+   // 🔥 PRE-FLIGHT LOGGING: Print URL, Headers, and Body BEFORE API call
+  console.log(`\n🚀 === WHATSAPP API REQUEST ===`);
+  console.log(`📍 URL: ${WHATSAPP_URL}`);
+  console.log(`📋 Headers:`);
+  console.log(`   Authorization: Bearer ${ACCESS_TOKEN ? ACCESS_TOKEN.slice(0, 20) + '...' : 'NOT_SET'}`);
+  console.log(`   Content-Type: application/json`);
+  console.log(`📦 Body: ${JSON.stringify(payload, null, 2)}`);
+  console.log(`=====================================\n`);
+  
   try {
     const response = await fetch(WHATSAPP_URL, {
       method: 'POST',
@@ -85,18 +103,36 @@ async function sendWhatsAppReply(toPhone, messageText) {
       body: JSON.stringify(payload)
     });
 
+    // Capture ALL response details
     const data = await response.json();
-    if (response.ok) {
-      console.log(`✅ Reply sent to ${toPhone}: "${messageText}"`);
-    } else {
-      console.error(`❌ Failed to send reply:`, data);
-    }
+    const headers = {};
+    
+    // Copy relevant headers
+    response.headers.forEach((value, key) => {
+      headers[key] = value;
+    });
+
+    console.log(`✅ Reply sent to ${toPhone}: "${messageText}"`);
+    console.log(`📤 WhatsApp API Status: ${response.status}`);
+    console.log(`📤 WhatsApp API Response:`, JSON.stringify(data, null, 2));
+
+    return {
+      status: response.status,
+      data: data,
+      headers: headers
+    };
   } catch (error) {
     console.error(`❌ Error sending reply:`, error.message);
+    return {
+      status: 500,
+      data: { error: 'Failed to send message', details: error.message },
+      headers: {}
+    };
   }
 }
 
 // Start the server
 app.listen(port, () => {
   console.log(`\n🚀 Server listening on port ${port}`);
+  console.log(`📍 Webhook URL: https://your-app.onrender.com/`);
 });
