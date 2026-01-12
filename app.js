@@ -65,7 +65,7 @@ app.post('/', async (req, res) => {
             console.log(`📤 Sending ACKNOWLEDGEMENT to ${senderPhone}`);
             const ackResult = await sendWhatsAppReply(senderPhone, `✅ Thanks for reaching out! We've received your message.`, null);
 
-			const originalMessageId = ackResult.messages[0].id; 
+			const originalMessageId = ackResult.data?.messages?.[0]?.id; 
 			console.log(`🆔 Returned Message ID: ${originalMessageId}`);
 
             // 2️⃣ SECOND: Reply to original message with context (30s delay)
