@@ -56,15 +56,18 @@ app.post('/', async (req, res) => {
           if (message.type === 'text') {
             const senderPhone = message.from;
             const incomingText = message.text.body;
-			const originalMessageId = message.id; // 🔥 CAPTURE ORIGINAL MESSAGE ID
+			const originalMessageIdTemp = message.id; // 🔥 CAPTURE ORIGINAL MESSAGE ID
             
             console.log(`\n📱 Message from ${senderPhone}: "${incomingText}"`);
-            console.log(`🆔 Original Message ID: ${originalMessageId}`);
+            console.log(`🆔 Original Message ID: ${originalMessageIdTemp}`);
 
             // 1️⃣ FIRST: Send instant acknowledgement (NO context)
             console.log(`📤 Sending ACKNOWLEDGEMENT to ${senderPhone}`);
             const ackResult = await sendWhatsAppReply(senderPhone, `✅ Thanks for reaching out! We've received your message.`, null);
-            
+
+			const originalMessageId = ackResult.messages[0].id; 
+			console.log(`🆔 Returned Message ID: ${originalMessageId}`);
+
             // 2️⃣ SECOND: Reply to original message with context (30s delay)
             console.log(`⏳ Scheduling REPLY WITH CONTEXT to ${senderPhone} in 30 seconds...`);
             setTimeout(async () => {
