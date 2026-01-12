@@ -13,7 +13,7 @@ const port = process.env.PORT || 3000;
 const verifyToken = process.env.VERIFY_TOKEN;
 const PHONE_NUMBER_ID = process.env.PHONE_NUMBER_ID;
 const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
-const API_VERSION = 'v19.0';
+const API_VERSION = process.env.ACCESS_TOKEN.API_VERSION;
 
 // WhatsApp API endpoint
 const WHATSAPP_URL = `https://graph.facebook.com/${API_VERSION}/${PHONE_NUMBER_ID}/messages`;
@@ -66,9 +66,13 @@ app.post('/', async (req, res) => {
 async function sendWhatsAppReply(toPhone, messageText) {
   const payload = {
     messaging_product: 'whatsapp',
+    recipient_type: 'individual',
     to: toPhone,
     type: 'text',
-    text: { body: messageText }
+    text: { 
+      preview_url: true,
+      body: messageText 
+    }
   };
 
   try {
@@ -95,9 +99,4 @@ async function sendWhatsAppReply(toPhone, messageText) {
 // Start the server
 app.listen(port, () => {
   console.log(`\n🚀 Server listening on port ${port}`);
-  console.log(`📍 Webhook URL: https://your-app.onrender.com/`);
-  console.log(`🔑 Set these environment variables on Render:`);
-  console.log(`   VERIFY_TOKEN=your_verify_token`);
-  console.log(`   PHONE_NUMBER_ID=your_phone_number_id`);
-  console.log(`   ACCESS_TOKEN=your_permanent_access_token`);
 });
