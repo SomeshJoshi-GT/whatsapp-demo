@@ -16,7 +16,7 @@ const ACCESS_TOKEN = process.env.ACCESS_TOKEN;
 const API_VERSION = process.env.API_VERSION || 'v22.0'; // Fixed: Added fallback
 
 // WhatsApp support team contact (customize this)
-const SUPPORT_CONTACT = process.env.SUPPORT_CONTACT || '+1-555-TEAM-HELP';
+const SUPPORT_CONTACT = process.env.SUPPORT_CONTACT || 'support@gotatva.com';
 											 
 																		 
 // WhatsApp API endpoint
